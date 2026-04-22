@@ -17,18 +17,20 @@ RUN npm run build
 FROM alpine:3.21
 RUN apk add --no-cache libgcc ca-certificates
 WORKDIR /app
-# Copy the binary specifically from the target dir
-COPY --from=backend-builder /usr/src/logwart/target/release/logwart /app/logwart
+
+# Copy binary to a path that won't be shadowed by volume mounts
+COPY --from=backend-builder /usr/src/logwart/target/release/logwart /usr/local/bin/logwart
+# Copy static files
 COPY --from=frontend-builder /usr/src/frontend/out /app/dist
 
-RUN chmod +x /app/logwart
+RUN chmod +x /usr/local/bin/logwart
 
-# Create logs directory
-RUN mkdir -p /logs
+# Create logs and data directory
+RUN mkdir -p /logs /data
 
 ENV LOG_DIR=/logs
-ENV DATABASE_URL=sqlite:/app/logwart.db
+ENV DATABASE_URL=sqlite:/data/logwart.db
 ENV PORT=3000
 
 EXPOSE 3000
-ENTRYPOINT ["/app/logwart"]
+ENTRYPOINT ["/usr/local/bin/logwart"]

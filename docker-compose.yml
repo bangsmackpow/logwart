@@ -8,9 +8,9 @@ services:
       - "3000:3000"
     volumes:
       - /opt/docker/stalwart/logs:/logs:ro
-      - ./data:/app
+      - ./data:/data
     environment:
       - LOGWART_TOKEN=admin
       - LOG_DIR=/logs
-      - DATABASE_URL=sqlite:/app/logwart.db
+      - DATABASE_URL=sqlite:/data/logwart.db
     restart: unless-stopped
