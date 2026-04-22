@@ -7,7 +7,9 @@ This file provides foundational context for AI agents working on this repository
   - Tailing: Uses standard file I/O with offsets.
   - SSE: Real-time event streaming to the frontend.
   - Database: SQLite + FTS5 for historical indexing.
+  - Graph API: `/api/network/graph` aggregates connection metadata (remote IPs, domains) into nodes and directed edges.
 - **Frontend (Next.js):** App Router, shadcn/ui, Tailwind CSS.
+  - Network Map: Uses `@xyflow/react` (React Flow) for interactive 2D graph visualization. Features circular auto-layout and status-based styling (green/red/neutral).
   - Features draggable columns and persistent storage of layout.
   - Uses `useLogStream` hook for SSE management.
 

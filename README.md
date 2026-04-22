@@ -5,6 +5,7 @@ A lightweight, high-performance log viewer for the [Stalwart Mail Server](https:
 ## Features
 
 - **Real-time Tailing:** Uses Server-Sent Events (SSE) to stream logs directly from the file to your browser.
+- **Network Map:** Interactive 2D visualization of server-to-server communication chains, with zoom/pan and status-based color coding.
 - **Dual-Mode Search:**
   - **File-Scan:** Search directly through log files (zero setup).
   - **Database (FTS5):** Ingest logs into a SQLite database with Full-Text Search for instantaneous historical queries.
