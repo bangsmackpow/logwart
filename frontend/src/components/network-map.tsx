@@ -44,8 +44,8 @@ interface NetworkMapProps {
 
 export function NetworkMap({ filterQuery }: NetworkMapProps) {
   const { token } = useAuth();
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchGraph = useCallback(async () => {
