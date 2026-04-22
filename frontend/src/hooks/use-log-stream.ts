@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { LogEntry } from '@/types/log';
+import { useAuth } from '@/components/auth-provider';
 
 export function useLogStream() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isLive, setIsLive] = useState(true);
+  const { token } = useAuth();
 
   useEffect(() => {
-    if (!isLive) return;
+    if (!isLive || !token) return;
 
-    const eventSource = new EventSource('/api/logs/stream');
+    const eventSource = new EventSource(`/api/logs/stream?token=${encodeURIComponent(token)}`);
 
     eventSource.onmessage = (event) => {
       const entry: LogEntry = JSON.parse(event.data);

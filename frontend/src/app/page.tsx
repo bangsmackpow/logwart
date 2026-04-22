@@ -8,11 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Play, Pause, Trash2, Database, RefreshCw } from "lucide-react";
+import { Search, Play, Pause, Trash2, Database, RefreshCw, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { LogEntry } from "@/types/log";
+import { useAuth, AuthProvider } from "@/components/auth-provider";
+import { LoginPage } from "@/components/login-page";
 
-export default function Dashboard() {
+function DashboardContent() {
+  const { token, setToken } = useAuth();
   const { logs: liveLogs, isLive, setIsLive, clearLogs } = useLogStream();
   const [searchLogs, setSearchLogs] = useState<LogEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -24,7 +27,15 @@ export default function Dashboard() {
     e.preventDefault();
     setIsSearching(true);
     try {
-      const res = await fetch(`/api/logs/search?q=${encodeURIComponent(searchQuery)}&mode=${searchMode}`);
+      const res = await fetch(`/api/logs/search?q=${encodeURIComponent(searchQuery)}&mode=${searchMode}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.status === 401) {
+        setToken(null);
+        return;
+      }
       const data = await res.json();
       setSearchLogs(data);
     } catch (error) {
@@ -38,7 +49,16 @@ export default function Dashboard() {
   const handleIngest = async () => {
     setIsIngesting(true);
     try {
-      const res = await fetch("/api/ingest", { method: "POST" });
+      const res = await fetch("/api/ingest", { 
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.status === 401) {
+        setToken(null);
+        return;
+      }
       if (res.ok) {
         toast.success("Ingestion started in background");
       } else {
@@ -68,6 +88,9 @@ export default function Dashboard() {
           <Button variant="secondary" size="sm" onClick={() => setIsLive(!isLive)}>
             {isLive ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
             {isLive ? "Pause" : "Resume"}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setToken(null)}>
+            <LogOut className="w-4 h-4" />
           </Button>
         </div>
       </header>
@@ -129,5 +152,19 @@ export default function Dashboard() {
         </TabsContent>
       </Tabs>
     </main>
+  );
+}
+
+function AuthWrapper() {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <LoginPage />;
+  return <DashboardContent />;
+}
+
+export default function Dashboard() {
+  return (
+    <AuthProvider>
+      <AuthWrapper />
+    </AuthProvider>
   );
 }

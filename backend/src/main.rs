@@ -2,11 +2,13 @@ mod parser;
 mod db;
 
 use axum::{
-    extract::{Query, State},
-    response::sse::{Event, Sse},
+    extract::{Query, State, Request},
+    response::{sse::{Event, Sse}, Response},
     routing::{get, post},
+    middleware::{self, Next},
     Router,
     Json,
+    http::StatusCode,
 };
 use serde::Deserialize;
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
@@ -64,10 +66,14 @@ async fn main() {
         tail_logs(state_clone).await;
     });
 
+    let api_routes = Router::new()
+        .route("/logs/stream", get(stream_handler))
+        .route("/logs/search", get(search_handler))
+        .route("/ingest", post(ingest_handler))
+        .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
+
     let app = Router::new()
-        .route("/api/logs/stream", get(stream_handler))
-        .route("/api/logs/search", get(search_handler))
-        .route("/api/ingest", post(ingest_handler))
+        .nest("/api", api_routes)
         .fallback_service(tower_http::services::ServeDir::new("dist").fallback(tower_http::services::ServeFile::new("dist/index.html")))
         .layer(CorsLayer::permissive())
         .with_state(state);
@@ -76,6 +82,35 @@ async fn main() {
     info!("Logwart backend listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
+}
+
+async fn auth_middleware(
+    State(state): State<Arc<AppState>>,
+    req: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    let auth_header = req
+        .headers()
+        .get("Authorization")
+        .and_then(|h| h.to_str().ok());
+
+    let token_query = req.uri().query()
+        .and_then(|q| q.split('&').find(|p| p.starts_with("token=")))
+        .and_then(|p| p.split('=').nth(1));
+
+    let is_authorized = match auth_header {
+        Some(auth) if auth == format!("Bearer {}", state.auth_token) => true,
+        _ => match token_query {
+            Some(token) if token == state.auth_token => true,
+            _ => false,
+        }
+    };
+
+    if is_authorized {
+        Ok(next.run(req).await)
+    } else {
+        Err(StatusCode::UNAUTHORIZED)
+    }
 }
 
 async fn tail_logs(state: Arc<AppState>) {
@@ -334,4 +369,3 @@ async fn ingest_handler(
     res.insert("status".to_string(), "started".to_string());
     Json(res)
 }
-
