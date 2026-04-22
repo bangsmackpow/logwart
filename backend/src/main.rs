@@ -194,13 +194,15 @@ async fn search_handler(
     let q = params.q.unwrap_or_default();
 
     if mode == "db" {
-        // SQL search - Use runtime query instead of macro
-        let query = format!("%{}%", q);
+        // SQL search - Use FTS5 for fast full-text search
         let rows = sqlx::query(
-            "SELECT timestamp, level, message, event_type, metadata, raw FROM logs 
-             WHERE raw LIKE ? ORDER BY id DESC LIMIT ?"
+            "SELECT logs.timestamp, logs.level, logs.message, logs.event_type, logs.metadata, logs.raw 
+             FROM logs_fts 
+             JOIN logs ON logs.id = logs_fts.rowid 
+             WHERE logs_fts MATCH ? 
+             ORDER BY logs.id DESC LIMIT ?"
         )
-        .bind(query)
+        .bind(&q)
         .bind(limit as i64)
         .fetch_all(&state.db)
         .await
@@ -295,7 +297,7 @@ async fn ingest_handler(
             .unwrap_or(None);
 
             let start_offset = match processed {
-                Some(p) if p.last_modified == modified => continue, // Already processed
+                Some(p) if p.last_modified == modified && p.last_offset >= meta.len() as i64 => continue, // Already processed and file hasn't grown
                 Some(p) => p.last_offset,
                 None => 0,
             };
