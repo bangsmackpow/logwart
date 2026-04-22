@@ -1,3 +1,8 @@
+# Stalwart Logs
+example_logs/
+logs/
+data/
+
 # Rust
 target/
 **/*.rs.bk
