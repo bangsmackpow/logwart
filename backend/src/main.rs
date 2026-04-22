@@ -13,8 +13,8 @@ use axum::{
 use serde::Deserialize;
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::broadcast;
-use tower_http::cors::CorsLayer;
-use tracing::{info, error};
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tracing::{info, error, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use std::env;
 use dotenvy::dotenv;
@@ -51,7 +51,7 @@ async fn main() {
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
 
     let pool = db::init_db(&database_url).await.expect("Failed to initialize database");
-    let (tx, _rx) = broadcast::channel(100);
+    let (tx, _rx) = broadcast::channel(1000);
 
     let state = Arc::new(AppState {
         db: pool,
@@ -75,6 +75,7 @@ async fn main() {
     let app = Router::new()
         .nest("/api", api_routes)
         .fallback_service(tower_http::services::ServeDir::new("dist").fallback(tower_http::services::ServeFile::new("dist/index.html")))
+        .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .with_state(state);
 
@@ -109,6 +110,7 @@ async fn auth_middleware(
     if is_authorized {
         Ok(next.run(req).await)
     } else {
+        warn!("Unauthorized access attempt to {}", req.uri().path());
         Err(StatusCode::UNAUTHORIZED)
     }
 }
@@ -119,7 +121,6 @@ async fn tail_logs(state: Arc<AppState>) {
     let mut last_pos: u64 = 0;
 
     loop {
-        // Find newest log file
         let newest = match find_newest_log(&state.log_dir).await {
             Ok(Some(path)) => path,
             Ok(None) => {
@@ -136,8 +137,15 @@ async fn tail_logs(state: Arc<AppState>) {
         if Some(&newest) != last_file.as_ref() {
             info!("Newest log file changed to {:?}", newest);
             last_file = Some(newest.clone());
+            
+            // On new file, start from the beginning if it's small, 
+            // or last 50 lines if it's large.
             let meta = metadata(&newest).await.unwrap();
-            last_pos = meta.len(); // Start tailing from the end of the new file
+            last_pos = if meta.len() > 10000 {
+                meta.len() - 10000 // Heuristic: last ~10KB
+            } else {
+                0
+            };
         }
 
         let file = match File::open(&newest).await {
@@ -160,7 +168,7 @@ async fn tail_logs(state: Arc<AppState>) {
         loop {
             line.clear();
             match reader.read_line(&mut line).await {
-                Ok(0) => break, // EOF, wait for more
+                Ok(0) => break,
                 Ok(_) => {
                     if let Some(entry) = parser::parse_line(line.trim()) {
                         let _ = state.tx.send(entry);
@@ -216,20 +224,19 @@ async fn stream_handler(
 #[derive(Deserialize)]
 struct SearchParams {
     q: Option<String>,
-    mode: Option<String>, // "file" or "db"
+    mode: Option<String>,
     limit: Option<usize>,
 }
 
 async fn search_handler(
     State(state): State<Arc<AppState>>,
     Query(params): Query<SearchParams>,
-) -> Json<Vec<parser::LogEntry>> {
+) -> Result<Json<Vec<parser::LogEntry>>, StatusCode> {
     let mode = params.mode.unwrap_or_else(|| "file".to_string());
     let limit = params.limit.unwrap_or(100);
     let q = params.q.unwrap_or_default();
 
     if mode == "db" {
-        // SQL search - Use FTS5 for fast full-text search
         let rows = sqlx::query(
             "SELECT logs.timestamp, logs.level, logs.message, logs.event_type, logs.metadata, logs.raw 
              FROM logs_fts 
@@ -241,7 +248,10 @@ async fn search_handler(
         .bind(limit as i64)
         .fetch_all(&state.db)
         .await
-        .unwrap_or_default();
+        .map_err(|e| {
+            error!("DB Search error: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
         let entries = rows.into_iter().map(|r| parser::LogEntry {
             timestamp: r.get(0),
@@ -252,9 +262,8 @@ async fn search_handler(
             raw: r.get(5),
         }).collect();
 
-        return Json(entries);
+        Ok(Json(entries))
     } else {
-        // File search (simple grep-like)
         let mut entries = Vec::new();
         let mut log_files = Vec::new();
         if let Ok(mut dir_entries) = tokio::fs::read_dir(&state.log_dir).await {
@@ -270,7 +279,6 @@ async fn search_handler(
             }
         }
         
-        // Sort files by name (which includes date) descending
         log_files.sort_by(|a, b| b.cmp(a));
 
         for path in log_files {
@@ -281,20 +289,19 @@ async fn search_handler(
                 let mut file_entries = Vec::new();
                 while let Ok(n) = reader.read_line(&mut line).await {
                     if n == 0 { break; }
-                    if line.contains(&q) {
+                    if line.to_lowercase().contains(&q.to_lowercase()) {
                         if let Some(entry) = parser::parse_line(line.trim()) {
                             file_entries.push(entry);
                         }
                     }
                     line.clear();
                 }
-                // Reverse file entries to get latest first if scanning chronologically
                 file_entries.reverse();
                 entries.extend(file_entries);
             }
         }
         entries.truncate(limit);
-        return Json(entries);
+        Ok(Json(entries))
     }
 }
 
@@ -320,7 +327,10 @@ async fn ingest_handler(
 
         for path in log_files {
             let filename = path.file_name().unwrap().to_str().unwrap().to_string();
-            let meta = metadata(&path).await.unwrap();
+            let meta = match metadata(&path).await {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
             let modified = meta.modified().unwrap().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
 
             let processed: Option<ProcessedFile> = sqlx::query_as::<_, ProcessedFile>(
@@ -332,7 +342,7 @@ async fn ingest_handler(
             .unwrap_or(None);
 
             let start_offset = match processed {
-                Some(p) if p.last_modified == modified && p.last_offset >= meta.len() as i64 => continue, // Already processed and file hasn't grown
+                Some(p) if p.last_modified == modified && p.last_offset >= meta.len() as i64 => continue,
                 Some(p) => p.last_offset,
                 None => 0,
             };
@@ -349,7 +359,7 @@ async fn ingest_handler(
                     }
                     line.clear();
                 }
-                let end_offset = reader.stream_position().await.unwrap() as i64;
+                let end_offset = reader.stream_position().await.unwrap_or(start_offset as u64) as i64;
                 let _ = sqlx::query(
                     "INSERT INTO processed_files (filename, last_offset, last_modified) 
                      VALUES (?, ?, ?) ON CONFLICT(filename) DO UPDATE SET 
