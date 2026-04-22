@@ -18,41 +18,44 @@ interface LogTableProps {
 
 export function LogTable({ logs }: LogTableProps) {
   return (
-    <div className="rounded-md border h-full overflow-hidden flex flex-col">
-      <Table>
-        <TableHeader className="sticky top-0 bg-background z-10">
-          <TableRow>
-            <TableHead className="w-[200px]">Timestamp</TableHead>
-            <TableHead className="w-[80px]">Level</TableHead>
-            <TableHead className="w-[150px]">Event</TableHead>
-            <TableHead>Message</TableHead>
-            <TableHead className="text-right">Metadata</TableHead>
-          </TableRow>
-        </TableHeader>
-      </Table>
+    <div className="h-full flex flex-col">
+      <div className="border-b bg-muted/30">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-[180px] h-9 text-[11px] uppercase tracking-wider font-semibold">Timestamp</TableHead>
+              <TableHead className="w-[70px] h-9 text-[11px] uppercase tracking-wider font-semibold text-center">Level</TableHead>
+              <TableHead className="w-[140px] h-9 text-[11px] uppercase tracking-wider font-semibold">Event</TableHead>
+              <TableHead className="h-9 text-[11px] uppercase tracking-wider font-semibold">Message</TableHead>
+              <TableHead className="h-9 text-[11px] uppercase tracking-wider font-semibold text-right pr-4">Metadata</TableHead>
+            </TableRow>
+          </TableHeader>
+        </Table>
+      </div>
       <ScrollArea className="flex-1">
         <Table>
           <TableBody>
             {logs.map((log, i) => (
-              <TableRow key={`${log.timestamp}-${i}`}>
-                <TableCell className="font-mono text-xs w-[200px]">
+              <TableRow key={`${log.timestamp}-${i}`} className="group border-b last:border-0 hover:bg-muted/30 transition-colors">
+                <TableCell className="font-mono text-[11px] w-[180px] py-2 text-muted-foreground whitespace-nowrap">
                   {log.timestamp}
                 </TableCell>
-                <TableCell className="w-[80px]">
+                <TableCell className="w-[70px] py-2 text-center">
                   <LevelBadge level={log.level} />
                 </TableCell>
-                <TableCell className="text-xs font-semibold w-[150px]">
+                <TableCell className="text-[11px] font-medium w-[140px] py-2 truncate text-primary/80">
                   {log.event_type || "-"}
                 </TableCell>
-                <TableCell className="text-sm max-w-md truncate">
-                  {log.message}
+                <TableCell className="text-[12px] py-2 max-w-md">
+                  <span className="text-foreground/90 leading-tight">{log.message}</span>
                 </TableCell>
-                <TableCell className="text-right">
-                   <div className="flex flex-wrap justify-end gap-1">
+                <TableCell className="py-2 text-right pr-4">
+                   <div className="flex flex-wrap justify-end gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
                     {Object.entries(log.metadata).map(([k, v]) => (
-                      <Badge key={k} variant="outline" className="text-[10px] px-1 py-0">
-                        {k}: {v}
-                      </Badge>
+                      <div key={k} className="flex items-center rounded-sm bg-muted border px-1.5 py-0.5 text-[9px] font-mono leading-none">
+                        <span className="text-muted-foreground mr-1">{k}:</span>
+                        <span className="font-medium text-foreground">{v}</span>
+                      </div>
                     ))}
                   </div>
                 </TableCell>
@@ -60,8 +63,11 @@ export function LogTable({ logs }: LogTableProps) {
             ))}
             {logs.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
-                  No logs found.
+                <TableCell colSpan={5} className="text-center py-20 text-muted-foreground">
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-sm font-medium">No logs available</p>
+                    <p className="text-xs text-muted-foreground">New entries will appear here as they are generated.</p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
@@ -73,14 +79,17 @@ export function LogTable({ logs }: LogTableProps) {
 }
 
 function LevelBadge({ level }: { level: string }) {
-  switch (level.toUpperCase()) {
+  const lv = level.toUpperCase();
+  const base = "text-[9px] px-1.5 py-0 h-4 min-w-[40px] font-bold justify-center rounded-[3px]";
+  
+  switch (lv) {
     case "ERROR":
-      return <Badge variant="destructive">{level}</Badge>;
+      return <Badge variant="destructive" className={base}>{lv}</Badge>;
     case "WARN":
-      return <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white">{level}</Badge>;
+      return <Badge className={`${base} bg-orange-500/10 text-orange-500 border-orange-500/20 hover:bg-orange-500/20`}>{lv}</Badge>;
     case "INFO":
-      return <Badge variant="secondary">{level}</Badge>;
+      return <Badge variant="secondary" className={`${base} bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/20`}>{lv}</Badge>;
     default:
-      return <Badge variant="outline">{level}</Badge>;
+      return <Badge variant="outline" className={`${base} opacity-50`}>{lv}</Badge>;
   }
 }

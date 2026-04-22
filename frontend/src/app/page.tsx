@@ -73,43 +73,48 @@ function DashboardContent() {
   };
 
   return (
-    <main className="container mx-auto p-4 h-screen flex flex-col gap-4">
-      <header className="flex justify-between items-center shrink-0">
-        <div className="flex items-center gap-2">
-          <Database className="w-6 h-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">Logwart</h1>
-          <Badge variant="outline" className="ml-2 font-mono">stalwart</Badge>
+    <main className="container mx-auto px-4 py-6 h-screen flex flex-col gap-6 max-w-7xl">
+      <header className="flex justify-between items-center shrink-0 border-b pb-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-primary/10 p-2 rounded-lg">
+            <Database className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight leading-none">Logwart</h1>
+            <p className="text-xs text-muted-foreground mt-1 font-mono">stalwart log viewer</p>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleIngest} disabled={isIngesting}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${isIngesting ? 'animate-spin' : ''}`} />
-            Ingest Logs
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleIngest} disabled={isIngesting} className="h-8 text-xs">
+            <RefreshCw className={`w-3.5 h-3.5 mr-2 ${isIngesting ? 'animate-spin' : ''}`} />
+            Ingest
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => setIsLive(!isLive)}>
-            {isLive ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+          <Button variant="secondary" size="sm" onClick={() => setIsLive(!isLive)} className="h-8 text-xs">
+            {isLive ? <Pause className="w-3.5 h-3.5 mr-2" /> : <Play className="w-3.5 h-3.5 mr-2" />}
             {isLive ? "Pause" : "Resume"}
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setToken(null)}>
+          <div className="w-px h-4 bg-border mx-1" />
+          <Button variant="ghost" size="icon" onClick={() => setToken(null)} className="h-8 w-8 text-muted-foreground hover:text-foreground">
             <LogOut className="w-4 h-4" />
           </Button>
         </div>
       </header>
 
-      <Tabs defaultValue="live" className="flex-1 flex flex-col min-h-0">
-        <TabsList className="grid w-[400px] grid-cols-2">
-          <TabsTrigger value="live">Live View</TabsTrigger>
-          <TabsTrigger value="search">Historical Search</TabsTrigger>
+      <Tabs defaultValue="live" className="flex-1 flex flex-col min-h-0 gap-4">
+        <TabsList className="w-fit h-9 p-1 bg-muted/50 border">
+          <TabsTrigger value="live" className="px-4 py-1.5 text-xs font-medium">Live View</TabsTrigger>
+          <TabsTrigger value="search" className="px-4 py-1.5 text-xs font-medium">Historical Search</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="live" className="flex-1 min-h-0 mt-4">
-          <Card className="h-full flex flex-col border-none shadow-none">
-            <CardHeader className="px-0 pt-0 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Real-time Logs</CardTitle>
-                <CardDescription>Tailing the latest stalwart.log file.</CardDescription>
+        <TabsContent value="live" className="flex-1 min-h-0 m-0 outline-none focus-visible:ring-0">
+          <Card className="h-full flex flex-col overflow-hidden border">
+            <CardHeader className="py-3 px-4 flex flex-row items-center justify-between border-b space-y-0">
+              <div className="space-y-0.5">
+                <CardTitle className="text-sm font-medium">Real-time Stream</CardTitle>
+                <CardDescription className="text-xs">Tailing latest log file</CardDescription>
               </div>
-              <Button variant="ghost" size="sm" onClick={clearLogs}>
-                <Trash2 className="w-4 h-4 mr-2" />
+              <Button variant="ghost" size="sm" onClick={clearLogs} className="h-7 text-xs text-muted-foreground hover:text-foreground">
+                <Trash2 className="w-3.5 h-3.5 mr-2" />
                 Clear
               </Button>
             </CardHeader>
@@ -119,31 +124,39 @@ function DashboardContent() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="search" className="flex-1 min-h-0 mt-4">
-          <Card className="h-full flex flex-col border-none shadow-none">
-            <CardHeader className="px-0 pt-0">
-              <div className="flex justify-between items-end gap-4">
-                <form onSubmit={handleSearch} className="flex-1 flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search messages, raw content..."
-                      className="pl-8"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  <Tabs value={searchMode} onValueChange={(v) => setSearchMode(v as "file" | "db")} className="shrink-0">
-                    <TabsList>
-                      <TabsTrigger value="file">Files</TabsTrigger>
-                      <TabsTrigger value="db">Database</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                  <Button type="submit" disabled={isSearching}>
-                    {isSearching ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Search"}
-                  </Button>
-                </form>
-              </div>
+        <TabsContent value="search" className="flex-1 min-h-0 m-0 outline-none focus-visible:ring-0">
+          <Card className="h-full flex flex-col overflow-hidden border">
+            <CardHeader className="py-3 px-4 border-b space-y-0">
+              <form onSubmit={handleSearch} className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search messages, raw content..."
+                    className="pl-8 h-9 text-sm"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <div className="flex bg-muted/50 rounded-md border p-0.5 shrink-0">
+                   <button 
+                    type="button"
+                    onClick={() => setSearchMode("file")}
+                    className={`px-3 py-1 text-[11px] font-medium rounded-[4px] transition-colors ${searchMode === "file" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                   >
+                     Files
+                   </button>
+                   <button 
+                    type="button"
+                    onClick={() => setSearchMode("db")}
+                    className={`px-3 py-1 text-[11px] font-medium rounded-[4px] transition-colors ${searchMode === "db" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                   >
+                     Database
+                   </button>
+                </div>
+                <Button type="submit" disabled={isSearching} size="sm" className="h-9 px-4 text-xs">
+                  {isSearching ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "Search"}
+                </Button>
+              </form>
             </CardHeader>
             <CardContent className="flex-1 p-0 min-h-0">
               <LogTable logs={searchLogs} />
