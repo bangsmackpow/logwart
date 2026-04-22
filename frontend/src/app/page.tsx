@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLogStream } from "@/hooks/use-log-stream";
 import { LogTable } from "@/components/log-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Play, Pause, Trash2, Database, RefreshCw, LogOut, Filter, ShieldAlert, Send, Settings2 } from "lucide-react";
+import { Search, Play, Pause, Trash2, Database, RefreshCw, LogOut, Filter, ShieldAlert, Send, Settings2, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { LogEntry } from "@/types/log";
 import { useAuth, AuthProvider } from "@/components/auth-provider";
@@ -30,6 +29,18 @@ function DashboardContent() {
   const [isSearching, setIsSearching] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [timeMode, setTimeMode] = useState<"local" | "utc">("local");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("logwart-time-mode");
+    if (saved === "utc" || saved === "local") setTimeMode(saved);
+  }, []);
+
+  const handleTimeToggle = () => {
+    const next = timeMode === "local" ? "utc" : "local";
+    setTimeMode(next);
+    localStorage.setItem("logwart-time-mode", next);
+  };
 
   const liveLogs = useMemo(() => {
     const filter = PRESET_FILTERS.find(f => f.id === activeFilter);
@@ -102,6 +113,16 @@ function DashboardContent() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleTimeToggle}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-semibold transition-all ${timeMode === "local" ? "bg-primary/10 border-primary/30 text-primary" : "bg-muted border-transparent text-muted-foreground"}`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            {timeMode === "local" ? "LOCAL TIME" : "SERVER TIME"}
+          </button>
+
+          <div className="w-px h-6 bg-border mx-1" />
+
            <div className="flex items-center bg-muted/50 rounded-lg p-1 border">
             {PRESET_FILTERS.map((f) => (
               <button
@@ -147,7 +168,7 @@ function DashboardContent() {
           </div>
 
           <TabsContent value="live" className="flex-1 min-h-0 m-0 outline-none p-0">
-            <LogTable logs={liveLogs} storageKey="logwart-live-columns" />
+            <LogTable logs={liveLogs} storageKey="logwart-live-columns" timeMode={timeMode} />
           </TabsContent>
 
           <TabsContent value="search" className="flex-1 min-h-0 m-0 outline-none flex flex-col">
@@ -184,7 +205,7 @@ function DashboardContent() {
               </form>
             </div>
             <div className="flex-1 min-h-0">
-              <LogTable logs={searchLogs} storageKey="logwart-search-columns" />
+              <LogTable logs={searchLogs} storageKey="logwart-search-columns" timeMode={timeMode} />
             </div>
           </TabsContent>
         </Tabs>

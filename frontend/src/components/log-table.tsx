@@ -16,9 +16,10 @@ import { useColumnResize } from "@/hooks/use-column-resize";
 interface LogTableProps {
   logs: LogEntry[];
   storageKey: string;
+  timeMode: "local" | "utc";
 }
 
-export function LogTable({ logs, storageKey }: LogTableProps) {
+export function LogTable({ logs, storageKey, timeMode }: LogTableProps) {
   const { widths, startResizing } = useColumnResize({
     timestamp: 180,
     level: 70,
@@ -27,10 +28,21 @@ export function LogTable({ logs, storageKey }: LogTableProps) {
     metadata: 300
   }, storageKey);
 
+  const formatTimestamp = (ts: string) => {
+    if (timeMode === "utc") return ts;
+    try {
+      const date = new Date(ts);
+      // Format as YYYY-MM-DD HH:MM:SS in local time
+      return date.toLocaleString('sv-SE', { timeZoneName: 'short' }).replace(' ', 'T');
+    } catch (e) {
+      return ts;
+    }
+  };
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="border-b bg-muted/30 shrink-0">
-        <Table className="table-fixed w-full">
+        <Table className="table-fixed w-full border-separate border-spacing-0">
           <TableHeader>
             <TableRow className="hover:bg-transparent border-0">
               <ResizableHeader 
@@ -60,7 +72,7 @@ export function LogTable({ logs, storageKey }: LogTableProps) {
                 Message
               </ResizableHeader>
               <TableHead 
-                className="h-9 text-[11px] uppercase tracking-wider font-semibold text-right pr-4"
+                className="h-9 text-[11px] uppercase tracking-wider font-semibold text-right pr-4 bg-muted/30"
                 style={{ width: widths.metadata }}
               >
                 Metadata
@@ -70,38 +82,38 @@ export function LogTable({ logs, storageKey }: LogTableProps) {
         </Table>
       </div>
       <ScrollArea className="flex-1">
-        <Table className="table-fixed w-full">
+        <Table className="table-fixed w-full border-separate border-spacing-0">
           <TableBody>
             {logs.map((log, i) => (
               <TableRow key={`${log.timestamp}-${i}`} className="group border-b last:border-0 hover:bg-muted/30 transition-colors">
                 <TableCell 
-                  className="font-mono text-[11px] py-2 text-muted-foreground whitespace-nowrap overflow-hidden pl-4"
+                  className="font-mono text-[11px] py-2 text-muted-foreground whitespace-nowrap overflow-hidden pl-4 border-b"
                   style={{ width: widths.timestamp }}
                 >
-                  {log.timestamp}
+                  {formatTimestamp(log.timestamp)}
                 </TableCell>
                 <TableCell 
-                  className="py-2 text-center overflow-hidden"
+                  className="py-2 text-center overflow-hidden border-b"
                   style={{ width: widths.level }}
                 >
                   <LevelBadge level={log.level} />
                 </TableCell>
                 <TableCell 
-                  className="text-[11px] font-medium py-2 truncate text-primary/80 overflow-hidden"
+                  className="text-[11px] font-medium py-2 truncate text-primary/80 overflow-hidden border-b"
                   style={{ width: widths.event }}
                 >
                   {log.event_type || "-"}
                 </TableCell>
                 <TableCell 
-                  className="text-[12px] py-2 overflow-hidden"
+                  className="text-[12px] py-2 overflow-hidden border-b"
                   style={{ width: widths.message }}
                 >
-                  <span className="text-foreground/90 leading-tight block truncate group-hover:whitespace-normal group-hover:overflow-visible group-hover:bg-muted/50 group-hover:relative group-hover:z-10 group-hover:p-1 group-hover:-m-1 group-hover:rounded-sm">
+                  <span className="text-foreground/90 leading-tight block truncate group-hover:whitespace-normal group-hover:overflow-visible group-hover:bg-muted group-hover:relative group-hover:z-10 group-hover:p-1 group-hover:-m-1 group-hover:rounded-sm">
                     {log.message}
                   </span>
                 </TableCell>
                 <TableCell 
-                  className="py-2 text-right pr-4 overflow-hidden"
+                  className="py-2 text-right pr-4 overflow-hidden border-b"
                   style={{ width: widths.metadata }}
                 >
                    <div className="flex flex-wrap justify-end gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
@@ -145,7 +157,7 @@ function ResizableHeader({
 }) {
   return (
     <TableHead 
-      className={`h-9 text-[11px] uppercase tracking-wider font-semibold relative group/header ${className}`}
+      className={`h-9 text-[11px] uppercase tracking-wider font-semibold relative group/header bg-muted/30 border-r last:border-r-0 ${className}`}
       style={{ width }}
     >
       {children}
