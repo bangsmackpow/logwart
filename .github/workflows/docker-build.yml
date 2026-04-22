@@ -44,4 +44,4 @@ jobs:
       - name: Trigger Portainer Webhook
         if: success()
         run: |
-          curl -X POST ${{ secrets.PORTAINER_WEBHOOK_URL }}
+          curl -k -X POST ${{ secrets.PORTAINER_WEBHOOK_URL }}
