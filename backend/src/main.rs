@@ -1,5 +1,6 @@
 mod parser;
 mod db;
+mod graph;
 
 use axum::{
     extract::{Query, State, Request},
@@ -69,6 +70,7 @@ async fn main() {
     let api_routes = Router::new()
         .route("/logs/stream", get(stream_handler))
         .route("/logs/search", get(search_handler))
+        .route("/network/graph", get(graph_handler))
         .route("/ingest", post(ingest_handler))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
@@ -205,6 +207,19 @@ async fn find_newest_log(dir: &PathBuf) -> tokio::io::Result<Option<PathBuf>> {
         }
     }
     Ok(newest.map(|(p, _)| p))
+}
+
+async fn graph_handler(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<SearchParams>,
+) -> Result<Json<graph::GraphData>, StatusCode> {
+    let q = params.q.unwrap_or_default();
+    graph::get_graph_data(&state, &q).await
+        .map(Json)
+        .map_err(|e| {
+            error!("Graph extraction error: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })
 }
 
 async fn stream_handler(

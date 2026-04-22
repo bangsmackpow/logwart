@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Search, Play, Pause, Trash2, Database, RefreshCw, LogOut, Filter, ShieldAlert, Send, Settings2, Clock } from "lucide-react";
+import { Search, Play, Pause, Trash2, Database, RefreshCw, LogOut, Filter, ShieldAlert, Send, Settings2, Clock, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { LogEntry } from "@/types/log";
 import { useAuth, AuthProvider } from "@/components/auth-provider";
 import { LoginPage } from "@/components/login-page";
+import { NetworkMap } from "@/components/network-map";
 
 const PRESET_FILTERS = [
   { id: 'all', label: 'All', icon: Filter, pattern: '' },
@@ -42,17 +43,21 @@ function DashboardContent() {
     localStorage.setItem("logwart-time-mode", next);
   };
 
-  const liveLogs = useMemo(() => {
+  const activeFilterPattern = useMemo(() => {
     const filter = PRESET_FILTERS.find(f => f.id === activeFilter);
-    if (!filter || !filter.pattern) return rawLiveLogs;
+    return filter ? filter.pattern : '';
+  }, [activeFilter]);
+
+  const liveLogs = useMemo(() => {
+    if (!activeFilterPattern) return rawLiveLogs;
     
-    const re = new RegExp(filter.pattern, 'i');
+    const re = new RegExp(activeFilterPattern, 'i');
     return rawLiveLogs.filter(log => 
       (log.event_type && re.test(log.event_type)) || 
       re.test(log.message) || 
       re.test(log.level)
     );
-  }, [rawLiveLogs, activeFilter]);
+  }, [rawLiveLogs, activeFilterPattern]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,6 +164,10 @@ function DashboardContent() {
             <TabsList className="w-fit h-8 p-0.5 bg-muted border rounded-lg">
               <TabsTrigger value="live" className="px-6 h-7 text-[11px] font-bold rounded-md data-[state=active]:shadow-sm">LIVE VIEW</TabsTrigger>
               <TabsTrigger value="search" className="px-6 h-7 text-[11px] font-bold rounded-md data-[state=active]:shadow-sm">HISTORICAL</TabsTrigger>
+              <TabsTrigger value="network" className="px-6 h-7 text-[11px] font-bold rounded-md data-[state=active]:shadow-sm flex items-center gap-2">
+                <Share2 className="w-3 h-3" />
+                NETWORK MAP
+              </TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="h-5 text-[9px] font-mono border-green-500/20 text-green-500 bg-green-500/5 px-2">
@@ -207,6 +216,10 @@ function DashboardContent() {
             <div className="flex-1 min-h-0">
               <LogTable logs={searchLogs} storageKey="logwart-search-columns" timeMode={timeMode} />
             </div>
+          </TabsContent>
+
+          <TabsContent value="network" className="flex-1 min-h-0 m-0 outline-none p-6">
+            <NetworkMap filterQuery={activeFilterPattern} />
           </TabsContent>
         </Tabs>
       </div>
