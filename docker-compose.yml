@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  logwart:
+    image: ghcr.io/bangsmackpow/logwart:latest
+    container_name: logwart
+    ports:
+      - "3000:3000"
+    volumes:
+      - /opt/docker/stalwart/logs:/logs:ro
+      - ./data:/app
+    environment:
+      - LOGWART_TOKEN=admin
+      - LOG_DIR=/logs
+      - DATABASE_URL=sqlite:/app/logwart.db
+    restart: unless-stopped
